@@ -1,92 +1,110 @@
 import React, { useState, useEffect } from 'react';
 
-const CurrencyConverter = () => {
+function CurrencyConverter() {
   const [amount, setAmount] = useState('');
-  const [sourceCurrency, setSourceCurrency] = useState('USD');
-  const [destCurrency, setDestCurrency] = useState('EUR');
-  const [result, setResult] = useState(null);
-  
-  const currencies = ['AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'EUR', 'GBP', 'INR', 'JPY', 'USD'];
-  
-  const handleAmountChange = (e) => {
-    const value = e.target.value;
-    if (value !== '' && isNaN(value)) {
-      alert('Please enter a valid number');
+  const [sourceCurrency, setSourceCurrency] = useState('EUR');
+  const [destCurrency, setDestCurrency] = useState('USD');
+  const [convertedValue, setConvertedValue] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    // Reset conversion output if no amount is provided.
+    if (amount === '') {
+      setConvertedValue('');
       return;
     }
-    if (value.length > 9) return;
-    setAmount(value);
-  };
+    // Validate that the input is a valid number.
+    if (isNaN(amount)) {
+      setError('Please enter a valid number');
+      setConvertedValue('');
+      return;
+    } else {
+      setError('');
+    }
 
+    // Build the URL for the Frankfurter API.
+    const url = `https://api.frankfurter.app/latest?amount=${amount}&from=${sourceCurrency}&to=${destCurrency}`;
+
+    fetch(url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        // The API returns converted amount inside data.rates with the destination currency key.
+        if (data && data.rates && data.rates[destCurrency] !== undefined) {
+          setConvertedValue(parseFloat(data.rates[destCurrency]).toFixed(2));
+        } else {
+          setError('Conversion rate not found');
+          setConvertedValue('');
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching conversion rate:', err);
+        setError('Error fetching conversion rate');
+        setConvertedValue('');
+      });
+  }, [amount, sourceCurrency, destCurrency]);
+
+  // Handler for swapping currencies.
   const handleSwap = () => {
     setSourceCurrency(destCurrency);
     setDestCurrency(sourceCurrency);
   };
 
-  useEffect(() => {
-    if (amount === '' || isNaN(amount)) return;
-    
-    const fetchConversion = async () => {
-      try {
-        const query = `${sourceCurrency}_${destCurrency}`;
-        const response = await fetch(`https://free.currencyconverterapi.com/api/v6/convert?q=${query}&compact=ultra`);
-        const data = await response.json();
-        const rate = data[query];
-        if (rate) {
-          setResult((amount * rate).toFixed(2));
-        } else {
-          setResult('N/A');
-        }
-      } catch (error) {
-        console.error('Error fetching conversion rate:', error);
-      }
-    };
-
-    fetchConversion();
-  }, [amount, sourceCurrency, destCurrency]);
-
   return (
-    <div style={{ padding: '20px', maxWidth: '400px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
       <h1>Currency Converter</h1>
       <div>
-        <input 
-          type="text" 
-          value={amount} 
-          onChange={handleAmountChange} 
-          placeholder="Enter amount" 
-          style={{ width: '100%', padding: '8px', fontSize: '16px' }}
+        <input
+          type="text"
+          placeholder="Enter amount"
+          value={amount}
+          onChange={(e) => {
+            // Allow up to 9 characters
+            if (e.target.value.length <= 9) {
+              setAmount(e.target.value);
+            }
+          }}
         />
+        {error && <p style={{ color: 'red' }}>{error}</p>}
       </div>
-      <div style={{ margin: '10px 0' }}>
-        <select 
-          value={sourceCurrency} 
-          onChange={(e) => setSourceCurrency(e.target.value)}
-          style={{ width: '45%', padding: '8px', fontSize: '16px' }}
-        >
-          {currencies.sort().map(currency => (
-            <option key={currency} value={currency}>{currency}</option>
-          ))}
-        </select>
-
-        <button onClick={handleSwap} style={{ margin: '0 10px', padding: '8px 12px', fontSize: '16px' }}>
+      <div style={{ marginTop: '10px' }}>
+        <label>
+          From:
+          <select
+            value={sourceCurrency}
+            onChange={(e) => setSourceCurrency(e.target.value)}
+            style={{ marginLeft: '5px' }}
+          >
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+          </select>
+        </label>
+        <button onClick={handleSwap} style={{ margin: '0 10px' }}>
           Swap
         </button>
-
-        <select 
-          value={destCurrency} 
-          onChange={(e) => setDestCurrency(e.target.value)}
-          style={{ width: '45%', padding: '8px', fontSize: '16px' }}
-        >
-          {currencies.sort().map(currency => (
-            <option key={currency} value={currency}>{currency}</option>
-          ))}
-        </select>
+        <label>
+          To:
+          <select
+            value={destCurrency}
+            onChange={(e) => setDestCurrency(e.target.value)}
+            style={{ marginLeft: '5px' }}
+          >
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+          </select>
+        </label>
       </div>
-      <div style={{ marginTop: '20px', fontSize: '18px' }}>
-        <strong>Converted Amount: </strong> {result !== null ? result : '0.00'}
+      <div style={{ marginTop: '20px' }}>
+        <h2>Converted Value: {convertedValue}</h2>
       </div>
     </div>
   );
-};
+}
 
 export default CurrencyConverter;
